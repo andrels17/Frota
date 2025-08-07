@@ -28,44 +28,40 @@ df['Chassis'] = df['Chassis'].fillna('Não Informado')
 df['Série'] = df['Série'].fillna('Não Informado')
 df['Proprietário'] = df['Proprietário'].str.replace(' S/A', '', regex=False).str.strip().str.upper()
 
-def categorizar_descricao(descricao):
-    descricao = str(descricao).upper()
-    if 'TRATOR' in descricao:
-        return 'TRATOR'
-    elif 'ADUBADEIRA' in descricao:
-        return 'ADUBADEIRA'
-    elif 'ASPERSORES' in descricao:
-        return 'ASPERSORES'
-    elif 'TURBOMAQ' in descricao:
-        return 'TURBOMAQ'
-    else:
-        return 'OUTROS'
+# Contar a frequência de cada descrição
+descricao_counts = df['Descrição'].value_counts()
 
-df['Categoria'] = df['Descrição'].apply(categorizar_descricao)
+# Manter apenas as top 10 descrições mais frequentes, para melhor visualização
+top_10_descricoes = descricao_counts.index[:10]
 
-# Preparar dados para os gráficos
+# Criar a coluna 'Categoria' com as top 10 descrições e 'Outros' para as demais
+df['Categoria'] = df['Descrição'].apply(lambda x: x if x in top_10_descricoes else 'Outros')
+
+
+# Preparar dados para o gráfico de pizza
 df_por_categoria = df['Categoria'].value_counts().reset_index()
 df_por_categoria.columns = ['Categoria', 'Número de Itens']
 
-df_por_proprietario = df['Proprietário'].value_counts().reset_index()
-df_por_proprietario.columns = ['Proprietário', 'Número de Itens']
 
 # --- Construir a interface com Streamlit ---
 
-# Criar duas colunas para os gráficos
-col1, col2 = st.columns(2)
+st.subheader("Distribuição da Frota por Categoria")
 
-with col1:
-    st.subheader("Distribuição por Categoria")
-    fig_pie = px.pie(df_por_categoria, values='Número de Itens', names='Categoria', 
-                     title='Distribuição da Frota por Categoria')
-    st.plotly_chart(fig_pie, use_container_width=True)
+# Criar um gráfico de barras em vez de pizza para ter uma visualização mais clara das muitas categorias
+fig_bar = px.bar(df_por_categoria, x='Categoria', y='Número de Itens',
+                 title='Distribuição da Frota por Categoria (Top 10)')
+st.plotly_chart(fig_bar, use_container_width=True)
 
-with col2:
-    st.subheader("Itens por Proprietário")
-    fig_bar = px.bar(df_por_proprietario, x='Proprietário', y='Número de Itens',
-                     title='Itens por Proprietário')
-    st.plotly_chart(fig_bar, use_container_width=True)
 
 st.subheader("Dados da Frota Completa")
-st.dataframe(df, use_container_width=True)
+
+# Adicionar a caixa de pesquisa
+search_term = st.text_input("Pesquisar na frota (ex: Trator, Placa, Proprietário)")
+
+# Filtrar o DataFrame com base no termo de pesquisa
+if search_term:
+    df_filtered = df[df.apply(lambda row: row.astype(str).str.contains(search_term, case=False).any(), axis=1)]
+    st.dataframe(df_filtered, use_container_width=True)
+else:
+    # Exibir a tabela completa se não houver termo de pesquisa
+    st.dataframe(df, use_container_width=True)
