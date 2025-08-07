@@ -28,30 +28,41 @@ df['Chassis'] = df['Chassis'].fillna('Não Informado')
 df['Série'] = df['Série'].fillna('Não Informado')
 df['Proprietário'] = df['Proprietário'].str.replace(' S/A', '', regex=False).str.strip().str.upper()
 
-# Contar a frequência de cada descrição
-descricao_counts = df['Descrição'].value_counts()
+# --- NOVA LÓGICA DE CATEGORIZAÇÃO PERSONALIZADA ---
 
-# Manter apenas as top 10 descrições mais frequentes, para melhor visualização
-top_10_descricoes = descricao_counts.index[:10]
+# Lista das categorias que você quer destacar
+categorias_principais = [
+    'COLHEDORA', 'TRATOR', 'TRANSBORDO', 'CAMINHAO', 'CARREGADEIRA',
+    'MOTOR BOMBA', 'GERADOR', 'REBOQUE', 'MOTONIVELADORA', 'PÁS', 
+    'EMPILHADEIRA'
+]
 
-# Criar a coluna 'Categoria' com as top 10 descrições e 'Outros' para as demais
-df['Categoria'] = df['Descrição'].apply(lambda x: x if x in top_10_descricoes else 'Outros')
+# Função para categorizar a frota com base na sua lista
+def categorizar_frota(descricao):
+    descricao = str(descricao).upper()
+    for categoria in categorias_principais:
+        if categoria in descricao:
+            # Para PÁS, podemos especificar melhor
+            if 'PÁ' in descricao and ('MECANICA' in descricao or 'CARREGADEIRA' in descricao):
+                return 'PÁ CARREGADEIRA / MECANICA'
+            else:
+                return categoria
+    return 'Outros'
 
+df['Categoria'] = df['Descrição'].apply(categorizar_frota)
 
-# Preparar dados para o gráfico de pizza
+# Preparar dados para o gráfico de barras
 df_por_categoria = df['Categoria'].value_counts().reset_index()
 df_por_categoria.columns = ['Categoria', 'Número de Itens']
 
-
 # --- Construir a interface com Streamlit ---
 
-st.subheader("Distribuição da Frota por Categoria")
+st.subheader("Distribuição da Frota por Categoria Principal")
 
-# Criar um gráfico de barras em vez de pizza para ter uma visualização mais clara das muitas categorias
+# Criar um gráfico de barras com as categorias personalizadas
 fig_bar = px.bar(df_por_categoria, x='Categoria', y='Número de Itens',
-                 title='Distribuição da Frota por Categoria (Top 10)')
+                 title='Distribuição da Frota por Categoria')
 st.plotly_chart(fig_bar, use_container_width=True)
-
 
 st.subheader("Dados da Frota Completa")
 
